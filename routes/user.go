@@ -119,7 +119,7 @@ func FacebookBookLoginOrSignUp(ctx iris.Context) {
 		utils.HandleValidationErrors(err, ctx)
 	}
 
-	endpoint := fmt.Sprintf("https://graph.facebook.com/me?fields=id,name,email&access_token=%s", userInput.AcessToken)
+	endpoint := fmt.Sprintf("https://graph.facebook.com/me?fields=id,name,email&access_token=%s", userInput.AccessToken)
 	client := &http.Client{}
 
 	req, _ := http.NewRequest("GET", endpoint, nil)
