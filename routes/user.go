@@ -232,7 +232,7 @@ type LoginUserStruct struct {
 }
 
 type FacebookOAuth struct {
-	AcessToken string `json:"accessToken" validate:"required"`
+	AccessToken string `json:"accessToken" validate:"required"`
 }
 
 type FacebookUserRes struct {
