@@ -26,7 +26,7 @@ func main() {
 	{
 		user.Post("/create-user", routes.Register)
 		user.Post("/login-user", routes.Login)
-		user.Post("/facebook-OAuth", routes.FacebookBookLoginOrSignUp)
+		user.Post("/facebook-login", routes.FacebookBookLoginOrSignUp)
 	}
 
 	app.Listen(":4000")
