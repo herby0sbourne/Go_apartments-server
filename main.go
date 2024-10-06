@@ -18,14 +18,15 @@ func main() {
 
 	location := app.Party("/api/location")
 	{
-		location.Get("/autocomplete", routes.Autocomplete)
 		location.Get("/search", routes.Search)
+		location.Get("/autocomplete", routes.Autocomplete)
 	}
 
 	user := app.Party("/api/user")
 	{
-		user.Post("/create-user", routes.Register)
 		user.Post("/login-user", routes.Login)
+		user.Post("/create-user", routes.Register)
+		user.Post("/google-login", routes.GoogleLoginOrSignUp)
 		user.Post("/facebook-login", routes.FacebookBookLoginOrSignUp)
 	}
 
