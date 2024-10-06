@@ -112,11 +112,12 @@ func Login(ctx iris.Context) {
 }
 
 func FacebookBookLoginOrSignUp(ctx iris.Context) {
-	var userInput FacebookOAuth
+	var userInput FacebookOrGoogleOAuth
 
 	err := ctx.ReadJSON(&userInput)
 	if err != nil {
 		utils.HandleValidationErrors(err, ctx)
+		return
 	}
 
 	endpoint := fmt.Sprintf("https://graph.facebook.com/me?fields=id,name,email&access_token=%s", userInput.AccessToken)
@@ -192,6 +193,89 @@ func FacebookBookLoginOrSignUp(ctx iris.Context) {
 	}
 }
 
+func GoogleLoginOrSignUp(ctx iris.Context) {
+	var userInput FacebookOrGoogleOAuth
+
+	err := ctx.ReadJSON(&userInput)
+	if err != nil {
+		utils.HandleValidationErrors(err, ctx)
+		return
+	}
+
+	endpoint := fmt.Sprintf("https://www.googleapis.com/oauth2/v3/userinfo?access_token=%s", userInput.AccessToken)
+	client := &http.Client{}
+
+	req, _ := http.NewRequest("GET", endpoint, nil)
+	res, googleErr := client.Do(req)
+
+	if googleErr != nil {
+		utils.CreateInternalServerError(ctx)
+		return
+	}
+
+	defer res.Body.Close()
+	body, bodyErr := io.ReadAll(res.Body)
+
+	if bodyErr != nil {
+		log.Panic(bodyErr)
+		utils.CreateInternalServerError(ctx)
+		return
+	}
+
+	var googleBody GoogleUserRes
+	json.Unmarshal(body, &googleBody)
+
+	if googleBody.Email != "" {
+		var user models.User
+
+		userExists, userExistsErr := checkUserExists(&user, googleBody.Email)
+
+		if userExistsErr != nil {
+			utils.CreateInternalServerError(ctx)
+			return
+
+		}
+
+		if userExists == false {
+			firstLastName := strings.SplitN(googleBody.Name, " ", 2)
+
+			user = models.User{
+				FirstName:      firstLastName[0],
+				LastName:       firstLastName[1],
+				Email:          googleBody.Email,
+				SocialLogin:    true,
+				SocialProvider: "Google",
+			}
+
+			database.DB.Create(&user)
+
+			ctx.JSON(iris.Map{
+				"ID":        user.ID,
+				"firstName": user.FirstName,
+				"lastName":  user.LastName,
+				"email":     user.Email,
+			})
+
+			return
+		}
+
+		if user.SocialLogin == true && user.SocialProvider == "Google" {
+			ctx.JSON(iris.Map{
+				"ID":        user.ID,
+				"firstName": user.FirstName,
+				"lastName":  user.LastName,
+				"email":     user.Email,
+			})
+
+			return
+		}
+
+		utils.UserRegisterAlready(ctx)
+		return
+	}
+
+}
+
 func checkUserExists(user *models.User, email string) (exists bool, err error) {
 	doesUserExist := database.DB.Where("email = ?", strings.ToLower(email)).Limit(1).Find(&user)
 
@@ -231,7 +315,7 @@ type LoginUserStruct struct {
 	Password string `json:"password" validate:"required"`
 }
 
-type FacebookOAuth struct {
+type FacebookOrGoogleOAuth struct {
 	AccessToken string `json:"accessToken" validate:"required"`
 }
 
@@ -239,4 +323,12 @@ type FacebookUserRes struct {
 	ID    string `json:"id"`
 	Name  string `json:"name" `
 	Email string `json:"email" `
+}
+
+type GoogleUserRes struct {
+	ID         string `json:"id"`
+	Name       string `json:"name"`
+	Email      string `json:"email"`
+	GivenName  string `json:"given_name"`
+	FamilyName string `json:"family_name"`
 }
