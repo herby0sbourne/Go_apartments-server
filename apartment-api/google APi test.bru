@@ -1,0 +1,15 @@
+meta {
+  name: google APi test
+  type: http
+  seq: 6
+}
+
+get {
+  url: https://www.googleapis.com/oauth2/v3/userinfo?access_token={{googleToken}}
+  body: none
+  auth: none
+}
+
+params:query {
+  access_token: {{googleToken}}
+}

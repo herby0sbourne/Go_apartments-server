@@ -1,0 +1,19 @@
+meta {
+  name: googleRequest
+  type: http
+  seq: 5
+}
+
+get {
+  url: https://www.googleapis.com/oauth2/v3/userinfo
+  body: none
+  auth: none
+}
+
+params:query {
+  ~alt: json
+}
+
+headers {
+  Authorization: Bearer {{googleToken}}
+}
