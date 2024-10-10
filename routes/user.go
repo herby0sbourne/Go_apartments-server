@@ -11,6 +11,8 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/MicahParks/keyfunc"
+	"github.com/golang-jwt/jwt/v4"
 	"github.com/kataras/iris/v12"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -276,6 +278,101 @@ func GoogleLoginOrSignUp(ctx iris.Context) {
 
 }
 
+func AppleLoginOrSignUp(ctx iris.Context) {
+	var userInput AppleOAuth
+
+	err := ctx.ReadJSON(&userInput)
+
+	if err != nil {
+		utils.HandleValidationErrors(err, ctx)
+		return
+	}
+
+	res, httpError := http.Get("https://appleid.apple.com/auth/keys")
+
+	if httpError != nil {
+		utils.CreateInternalServerError(ctx)
+		return
+	}
+
+	defer res.Body.Close()
+
+	body, bodyErr := io.ReadAll(res.Body)
+
+	if bodyErr != nil {
+		log.Panic(bodyErr)
+		utils.CreateInternalServerError(ctx)
+		return
+	}
+
+	jwks, jwksErr := keyfunc.NewJSON(body)
+
+	token, tokenErr := jwt.Parse(userInput.IdentityToken, jwks.Keyfunc)
+
+	if jwksErr != nil || tokenErr != nil {
+		utils.CreateInternalServerError(ctx)
+		return
+	}
+
+	if !token.Valid {
+		utils.CreateError(iris.StatusUnauthorized, "Unauthorized", "Invalid Token", ctx)
+		return
+	}
+
+	email := fmt.Sprint(token.Claims.(jwt.MapClaims)["email"])
+
+	if email != "" {
+		var user models.User
+
+		userExists, userExistsErr := checkUserExists(&user, email)
+
+		if userExistsErr != nil {
+			utils.CreateInternalServerError(ctx)
+			return
+
+		}
+
+		if userExists == false {
+			user = models.User{
+				// FirstName:      token.Claims.(jwt.MapClaims)["given_name"].(string),
+				// LastName:       token.Claims.(jwt.MapClaims)["family_name"].(string),
+				FirstName:      "",
+				LastName:       "",
+				Email:          email,
+				SocialLogin:    true,
+				SocialProvider: "Apple",
+			}
+
+			database.DB.Create(&user)
+
+			ctx.JSON(iris.Map{
+				"ID":        user.ID,
+				"firstName": user.FirstName,
+				"lastName":  user.LastName,
+				"email":     user.Email,
+			})
+
+			return
+		}
+
+		if user.SocialLogin == true && user.SocialProvider == "Apple" {
+			ctx.JSON(iris.Map{
+				"ID":        user.ID,
+				"firstName": user.FirstName,
+				"lastName":  user.LastName,
+				"email":     user.Email,
+			})
+
+			return
+
+		}
+
+		utils.UserRegisterAlready(ctx)
+		return
+	}
+
+}
+
 func checkUserExists(user *models.User, email string) (exists bool, err error) {
 	doesUserExist := database.DB.Where("email = ?", strings.ToLower(email)).Limit(1).Find(&user)
 
@@ -317,6 +414,11 @@ type LoginUserStruct struct {
 
 type FacebookOrGoogleOAuth struct {
 	AccessToken string `json:"accessToken" validate:"required"`
+}
+
+type AppleOAuth struct {
+	AccessToken   string `json:"accessToken" validate:"required"`
+	IdentityToken string `json:"identityToken" validate:"required"`
 }
 
 type FacebookUserRes struct {
