@@ -26,6 +26,7 @@ func main() {
 	{
 		user.Post("/login-user", routes.Login)
 		user.Post("/create-user", routes.Register)
+		user.Post("/apple-login", routes.AppleLoginOrSignUp)
 		user.Post("/google-login", routes.GoogleLoginOrSignUp)
 		user.Post("/facebook-login", routes.FacebookBookLoginOrSignUp)
 	}
